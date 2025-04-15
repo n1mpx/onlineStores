@@ -8,7 +8,11 @@ from datetime import timedelta
 
 
 class User(AbstractUser):
+    username = None
     email = models.EmailField(unique=True)
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
 
     groups = models.ManyToManyField(
         'auth.Group',

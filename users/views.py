@@ -10,6 +10,8 @@ from .serializers import EmailSerializer
 from rest_framework import status
 from django.core.exceptions import ValidationError
 
+import traceback
+
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -31,10 +33,17 @@ class LoginView(APIView):
                     [email],
                     fail_silently=False,
                 )
+                print(f'Ваш код: {email_code.code}')
 
                 return Response({"message": "Код отправлен на email."}, status=status.HTTP_200_OK)
 
+
             except Exception as e:
+
+                print("Произошла ошибка:")
+
+                traceback.print_exc()  # Покажет полный стек трейс
+
                 return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
