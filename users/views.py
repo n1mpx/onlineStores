@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -23,6 +24,7 @@ class LoginView(APIView):
             try:
                 user, created = User.objects.get_or_create(email=email)
 
+                EmailCode.objects.filter(email=email).delete()
                 email_code = EmailCode.objects.create(email=email)
                 email_code.generate_code()
 
