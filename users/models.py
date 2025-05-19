@@ -37,6 +37,13 @@ class User(AbstractUser):
     username = None
     email = models.EmailField(unique=True)
 
+    ROLE_CHOICES = [
+        ('buyer', 'Покупатель'),
+        ('seller', 'Продавец'),
+        ('admin', 'Админ'),
+    ]
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='buyer')
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 
@@ -54,7 +61,7 @@ class User(AbstractUser):
     )
 
     def __str__(self):
-        return self.username
+        return self.email
 
 
 class EmailCode(models.Model):

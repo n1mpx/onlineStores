@@ -81,7 +81,7 @@ class Checkout(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='checkouts'
     )
-    recipient = models.ForeignKey('Recipient', on_delete=models.PROTECT)
+    recipient = models.ForeignKey('Recipient', on_delete=models.CASCADE)
     payment_method = models.ForeignKey('PaymentMethod', on_delete=models.PROTECT)
     delivery_method = models.ForeignKey('DeliveryMethod', on_delete=models.PROTECT)
     payment_total = models.DecimalField(max_digits=10, decimal_places=2)

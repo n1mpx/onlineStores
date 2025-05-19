@@ -7,12 +7,12 @@ from .models import User, EmailCode
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     ordering = ['email']
-    list_display = ['email', 'is_active', 'is_staff', 'date_joined']
+    list_display = ['email', 'role', 'is_active', 'is_staff', 'date_joined']
     search_fields = ['email']
     readonly_fields = ['date_joined', 'last_login']
 
     fieldsets = (
-        (None, {'fields': ('email', 'password')}),
+        (None, {'fields': ('email', 'password', 'role')}),
         (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
@@ -20,12 +20,16 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active'),
+            'fields': ('email', 'password1', 'password2', 'role', 'is_staff', 'is_active'),
         }),
     )
 
     def get_fieldsets(self, request, obj=None):
-        return super().get_fieldsets(request, obj)
+        fieldsets = super().get_fieldsets(request, obj)
+        for name, options in fieldsets:
+            if 'password' in options.get('fields', []):
+                options['fields'] = tuple(f for f in options['fields'] if f != 'password')
+        return fieldsets
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
