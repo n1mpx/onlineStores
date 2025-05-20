@@ -14,5 +14,5 @@ router.register(r'checkouts', CheckoutViewSet, basename='checkout')
 router.register(r'transactions', TransactionViewSet, basename='transaction')
 
 urlpatterns = [
-    path('api/v1/', include(router.urls)),
+    path('', include(router.urls)),
 ]

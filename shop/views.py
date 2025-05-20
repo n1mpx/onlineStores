@@ -6,7 +6,7 @@ from .models import GoodCategory, Good, PaymentMethod, DeliveryMethod, Recipient
     CheckoutItem
 from .serializers import GoodCategorySerializer, GoodSerializer, PaymentMethodSerializer, DeliveryMethodSerializer, \
     RecipientSerializer, BasketItemSerializer, CheckoutSerializer, TransactionSerializer
-from .permission import IsSellerOrAdmin
+from .permission import IsSellerOrAdmin, IsSellerAndOwnerOrReadOnly, IsAdminOnly
 
 
 class CustomPagination(PageNumberPagination):
@@ -30,18 +30,24 @@ class GoodCategoryViewSet(viewsets.ModelViewSet):
 class GoodViewSet(viewsets.ModelViewSet):
     queryset = Good.objects.all()
     serializer_class = GoodSerializer
+    permission_classes = [IsSellerAndOwnerOrReadOnly]
     pagination_class = CustomPagination
 
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsSellerOrAdmin()]
-        return [permissions.AllowAny()]
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
 
+    def get_queryset(self):
+        return Good.objects.all()
 
 
 class PaymentMethodViewSet(viewsets.ModelViewSet):
     queryset = PaymentMethod.objects.all()
     serializer_class = PaymentMethodSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), IsAdminOnly()]
+        return [permissions.AllowAny()]
 
 
 class DeliveryMethodViewSet(viewsets.ModelViewSet):

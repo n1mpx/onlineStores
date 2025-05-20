@@ -17,10 +17,13 @@ class GoodSerializer(serializers.ModelSerializer):
     categoryId = serializers.PrimaryKeyRelatedField(
         source='category', queryset=GoodCategory.objects.all()
     )
+    sellerId = serializers.PrimaryKeyRelatedField(
+        source='seller', read_only=True
+    )
 
     class Meta:
         model = Good
-        fields = ['id', 'name', 'description', 'price', 'categoryId']
+        fields = ['id', 'name', 'description', 'price', 'categoryId', 'sellerId']
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
