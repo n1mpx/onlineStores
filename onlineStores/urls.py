@@ -17,8 +17,34 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('shop/', include('shop.urls')),
-    path('api/v1/auth/', include('users.urls')),
+    path('api/v1/', include([
+        path('auth/', include('users.urls')),
+        path('', include('shop.urls')),
+    ])),
 ]
+
+urlpatterns += [
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+]
+
+# Для входа: http://127.0.0.1:8000/api/v1/auth/login/
+"""
+{
+  "email": ""
+}
+"""
+# Для подтверждения: http://127.0.0.1:8000/api/v1/auth/confirm/
+"""
+{
+  "email": "",
+  "code": ""
+}
+"""
+# Методы оплаты: GET http://localhost:8000/api/v1/payment-methods/

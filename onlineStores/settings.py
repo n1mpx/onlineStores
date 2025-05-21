@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,6 +46,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'storages',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
 ]
 
 MIDDLEWARE = [
@@ -159,19 +162,45 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'OnlineStores API',
+    'DESCRIPTION': 'Документация API для интернет-магазина.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+# cd 'C:\Program Files\Minio\'
+# .\minio.exe server C:\MinioData
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage"
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+    }
+}
 
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
+DEFAULT_STORAGE_ALIAS = "default"
 
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
 AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default='')  # Например: http://localhost:9000
+
 AWS_S3_FILE_OVERWRITE = False
+AWS_S3_USE_SSL = False
+AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = None
+
+# Тинькофф Pay
+# Платеж через Тинькофф
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
