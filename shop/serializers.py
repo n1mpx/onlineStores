@@ -49,14 +49,21 @@ class RecipientSerializer(serializers.ModelSerializer):
         ]
 
 
+class GoodNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Good
+        fields = ['id', 'name', 'price', 'description']  # добавь нужные поля
+
 class BasketItemSerializer(serializers.ModelSerializer):
     goodId = serializers.PrimaryKeyRelatedField(
         source='good', queryset=Good.objects.all()
     )
+    good = GoodNestedSerializer(read_only=True)
 
     class Meta:
         model = BasketItem
-        fields = ['id', 'goodId', 'count']
+        fields = ['id', 'goodId', 'good', 'count']
+
 
 
 class CheckoutItemSerializer(serializers.ModelSerializer):

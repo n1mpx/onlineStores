@@ -81,40 +81,34 @@ class RecipientViewSet(viewsets.ModelViewSet):
         return Recipient.objects.filter(user=self.request.user)
 
 
-class BasketItemViewSet(
-    mixins.CreateModelMixin,
-    mixins.DestroyModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet
-):
+class BasketItemViewSet(viewsets.ModelViewSet):
     serializer_class = BasketItemSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None  # Корзина — без пагинации
 
     def get_queryset(self):
         return BasketItem.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        # Если товар уже в корзине — обновляем count
-        existing = BasketItem.objects.filter(user=self.request.user, good=serializer.validated_data['good']).first()
+        # Проверка: если уже есть такой товар у пользователя — обновим count
+        good = serializer.validated_data['good']
+        count = serializer.validated_data['count']
+        user = self.request.user
+
+        existing = BasketItem.objects.filter(user=user, good=good).first()
         if existing:
-            existing.count += serializer.validated_data['count']
+            existing.count += count
             existing.save()
-            self.existing_instance = existing
-        else:
-            serializer.save(user=self.request.user)
+            return
+        serializer.save(user=user)
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-
-        if hasattr(self, 'existing_instance'):
-            return Response(BasketItemSerializer(self.existing_instance).data, status=200)
-
-        return Response(serializer.data, status=201)
-
+    def update(self, request, *args, **kwargs):
+        # PATCH /api/v1/me/basket-items/:id
+        instance = self.get_object()
+        if 'count' in request.data:
+            instance.count = request.data['count']
+            instance.save()
+            return Response(self.get_serializer(instance).data)
+        return super().update(request, *args, **kwargs)
 
 class CheckoutViewSet(viewsets.ModelViewSet):
     queryset = Checkout.objects.all()
