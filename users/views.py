@@ -10,9 +10,18 @@ from .models import EmailCode, User
 from .serializers import EmailSerializer
 from rest_framework import status
 from django.core.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 
 import traceback
 
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "email": request.user.email,
+            "role": request.user.role
+        })
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
