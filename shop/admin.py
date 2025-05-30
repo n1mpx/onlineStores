@@ -11,10 +11,23 @@ class GoodCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Good)
 class GoodAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'price', 'category']
-    list_filter = ['category']
+    list_display = ['id', 'name', 'price', 'category', 'seller']
+    list_filter = ['category', 'seller']
     search_fields = ['name', 'description']
-    autocomplete_fields = ['category']
+    autocomplete_fields = ['category', 'seller']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser or request.user.role == 'admin':
+            return qs
+        return qs.filter(seller=request.user)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.seller = request.user
+        super().save_model(request, obj, form, change)
+
+
 
 
 @admin.register(PaymentMethod)

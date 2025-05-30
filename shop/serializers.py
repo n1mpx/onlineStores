@@ -78,19 +78,16 @@ class CheckoutSerializer(serializers.ModelSerializer):
     recipientId = serializers.PrimaryKeyRelatedField(source='recipient', queryset=Recipient.objects.all())
     paymentMethodId = serializers.PrimaryKeyRelatedField(source='payment_method', queryset=PaymentMethod.objects.all())
     deliveryMethodId = serializers.PrimaryKeyRelatedField(source='delivery_method', queryset=DeliveryMethod.objects.all())
-    basket = serializers.SerializerMethodField()
     items = CheckoutItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Checkout
         fields = [
-            'id', 'user', 'recipientId', 'basket', 'paymentMethodId',
-            'deliveryMethodId', 'payment_total', 'created', 'items'
+            'id', 'user', 'recipientId',
+            'paymentMethodId', 'deliveryMethodId',
+            'payment_total', 'created', 'items'
         ]
         read_only_fields = ['user', 'created']
-
-    def get_basket(self, obj):
-        return obj.items.count()  # можно вернуть list/summary при необходимости
 
 
 class TransactionSerializer(serializers.ModelSerializer):

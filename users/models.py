@@ -1,7 +1,7 @@
 import random
 import string
 
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser  # ✅ вот это важно!
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
 from django.utils import timezone
@@ -62,6 +62,14 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    @property
+    def is_seller(self):
+        """
+        Удобное свойство: возвращает True, если пользователь в группе 'seller'.
+        Работает даже если у него нет товаров.
+        """
+        return self.groups.filter(name='seller').exists()
 
 
 class EmailCode(models.Model):
