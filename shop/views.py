@@ -1,7 +1,8 @@
 from yookassa import Configuration, Payment
 import requests
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission, SAFE_METHODS
+from rest_framework.exceptions import PermissionDenied
 import uuid
 import json
 
@@ -17,7 +18,7 @@ from .models import GoodCategory, Good, PaymentMethod, DeliveryMethod, Recipient
     CheckoutItem, GoodImage
 from .serializers import GoodCategorySerializer, GoodSerializer, PaymentMethodSerializer, DeliveryMethodSerializer, \
     RecipientSerializer, BasketItemSerializer, CheckoutSerializer, TransactionSerializer
-from .permission import IsSellerOrAdmin, IsSellerAndOwnerOrReadOnly, IsAdminOnly
+from .permission import IsSellerOrAdmin, IsSellerAndOwnerOrReadOnly, IsAdminOnly, IsSellerOnly
 
 
 Configuration.account_id = settings.YOOKASSA_SHOP_ID
@@ -108,7 +109,7 @@ class CustomPagination(PageNumberPagination):
         return Response({
             'totalCount': self.page.paginator.count,
             'nextPage': self.get_next_link(),
-            'prevage': self.get_previous_link(),
+            'prevPage': self.get_previous_link(),
             'items': data
         })
 
@@ -119,17 +120,33 @@ class GoodCategoryViewSet(viewsets.ModelViewSet):
     pagination_class = CustomPagination
 
 
-class GoodViewSet(viewsets.ModelViewSet):
+class PublicGoodViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Good.objects.all()
     serializer_class = GoodSerializer
-    permission_classes = [IsSellerAndOwnerOrReadOnly]
+    permission_classes = [permissions.AllowAny]
     pagination_class = CustomPagination
+
+
+class GoodViewSet(viewsets.ModelViewSet):
+    serializer_class = GoodSerializer
+    permission_classes = [IsSellerOnly, IsSellerAndOwnerOrReadOnly]
+    pagination_class = CustomPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        print(self.request.user, self.request.user.is_staff)
+        if user.is_staff:
+            return Good.objects.all()
+        return Good.objects.filter(seller=user)
 
     def perform_create(self, serializer):
         serializer.save(seller=self.request.user)
 
-    def get_queryset(self):
-        return Good.objects.all()
+    def get_object(self):
+        obj = super().get_object()
+        if not self.request.user.is_staff and obj.seller != self.request.user:
+            raise PermissionDenied("Вы не можете получить доступ к чужому товару.")
+        return obj
 
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser])
     def upload_image(self, request, pk=None):
@@ -138,7 +155,7 @@ class GoodViewSet(viewsets.ModelViewSet):
         if good.seller != request.user:
             return Response({'detail': 'Вы не являетесь владельцем этого товара.'}, status=403)
 
-        if request.user.role != 'seller':
+        if request.user.role not in ['seller', 'admin']:
             return Response({'detail': 'Только продавец может загружать изображения.'}, status=403)
 
         images = request.FILES.getlist('image')
@@ -170,7 +187,9 @@ class DeliveryMethodViewSet(viewsets.ModelViewSet):
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
-        return request.user.is_staff or obj.user == request.user
+        if request.method in SAFE_METHODS:
+            return True
+        return obj.seller == request.user
 
 
 class RecipientViewSet(viewsets.ModelViewSet):
@@ -183,49 +202,65 @@ class RecipientViewSet(viewsets.ModelViewSet):
             return [IsOwnerOrAdmin()]
         return [permissions.IsAuthenticated()]
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
     def get_queryset(self):
-        # Админ видит всё, пользователь — только своё
         if self.request.user.is_staff:
             return Recipient.objects.all()
         return Recipient.objects.filter(user=self.request.user)
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
-class BasketItemViewSet(
-    mixins.CreateModelMixin,
-    mixins.DestroyModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet
-):
+
+class BasketItemViewSet(viewsets.ModelViewSet):
     serializer_class = BasketItemSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None  # Корзина — без пагинации
 
     def get_queryset(self):
         return BasketItem.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        # Если товар уже в корзине — обновляем count
-        existing = BasketItem.objects.filter(user=self.request.user, good=serializer.validated_data['good']).first()
+        good = serializer.validated_data['good']
+        count = serializer.validated_data['count']
+        user = self.request.user
+
+        if count <= 0:
+            raise serializers.ValidationError("Количество должно быть больше 0.")
+
+        existing = BasketItem.objects.filter(user=user, good=good).first()
         if existing:
-            existing.count += serializer.validated_data['count']
+            existing.count += count
             existing.save()
-            self.existing_instance = existing
-        else:
-            serializer.save(user=self.request.user)
+            raise serializers.ValidationError("Товар уже был в корзине — количество обновлено.")
+
+        serializer.save(user=user)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        good = serializer.validated_data['good']
+        count = serializer.validated_data['count']
+        user = request.user
+
+        existing = BasketItem.objects.filter(user=user, good=good).first()
+        if existing:
+            existing.count += count
+            existing.save()
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+
         self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        if hasattr(self, 'existing_instance'):
-            return Response(BasketItemSerializer(self.existing_instance).data, status=200)
-
-        return Response(serializer.data, status=201)
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if 'count' in request.data:
+            count = int(request.data['count'])
+            if count <= 0:
+                instance.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            instance.count = count
+            instance.save()
+            return Response(self.get_serializer(instance).data)
+        return super().update(request, *args, **kwargs)
 
 
 class CheckoutViewSet(viewsets.ModelViewSet):

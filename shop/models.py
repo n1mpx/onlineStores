@@ -113,7 +113,9 @@ class BasketItem(models.Model):
     count = models.PositiveIntegerField()
 
     class Meta:
-        unique_together = ['user', 'good']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'good'], name='unique_user_good')
+        ]
 
     def __str__(self):
         return f"{self.user} — {self.good.name} x {self.count}"

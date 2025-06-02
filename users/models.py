@@ -63,6 +63,10 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+    @property
+    def is_seller(self):
+        return self.groups.filter(name='seller').exists()
+
 
 class EmailCode(models.Model):
     email = models.EmailField(unique=True)
