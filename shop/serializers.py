@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import GoodCategory, Good, PaymentMethod, DeliveryMethod, Recipient, BasketItem, Checkout, CheckoutItem, \
-    Transaction
+from .models import GoodCategory, Good, GoodImage, PaymentMethod, DeliveryMethod, Recipient, BasketItem, Checkout, \
+    CheckoutItem, Transaction
 
 
 class GoodCategorySerializer(serializers.ModelSerializer):
@@ -13,6 +13,12 @@ class GoodCategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'parentId']
 
 
+class GoodImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GoodImage
+        fields = ['id', 'image', 'thumbnail']
+
+
 class GoodSerializer(serializers.ModelSerializer):
     categoryId = serializers.PrimaryKeyRelatedField(
         source='category', queryset=GoodCategory.objects.all()
@@ -20,10 +26,14 @@ class GoodSerializer(serializers.ModelSerializer):
     sellerId = serializers.PrimaryKeyRelatedField(
         source='seller', read_only=True
     )
+    images = GoodImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Good
-        fields = ['id', 'name', 'description', 'price', 'categoryId', 'sellerId']
+        fields = [
+            'id', 'name', 'description', 'price',
+            'categoryId', 'sellerId', 'images'
+        ]
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
@@ -49,14 +59,21 @@ class RecipientSerializer(serializers.ModelSerializer):
         ]
 
 
+class GoodNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Good
+        fields = ['id', 'name', 'price', 'description']
+
+
 class BasketItemSerializer(serializers.ModelSerializer):
     goodId = serializers.PrimaryKeyRelatedField(
         source='good', queryset=Good.objects.all()
     )
+    good = GoodNestedSerializer(read_only=True)
 
     class Meta:
         model = BasketItem
-        fields = ['id', 'goodId', 'count']
+        fields = ['id', 'goodId', 'good', 'count']
 
 
 class CheckoutItemSerializer(serializers.ModelSerializer):
@@ -73,14 +90,16 @@ class CheckoutSerializer(serializers.ModelSerializer):
     deliveryMethodId = serializers.PrimaryKeyRelatedField(source='delivery_method', queryset=DeliveryMethod.objects.all())
     basket = serializers.SerializerMethodField()
     items = CheckoutItemSerializer(many=True, read_only=True)
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = Checkout
         fields = [
             'id', 'user', 'recipientId', 'basket', 'paymentMethodId',
-            'deliveryMethodId', 'payment_total', 'created', 'items'
+            'deliveryMethodId', 'payment_total', 'created', 'items',
+            'is_paid', 'status'
         ]
-        read_only_fields = ['user', 'created']
+        read_only_fields = ['user', 'created', 'is_paid', 'status']
 
     def get_basket(self, obj):
         return obj.items.count()  # можно вернуть list/summary при необходимости

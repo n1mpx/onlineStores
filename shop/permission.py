@@ -7,20 +7,20 @@ class IsSellerOrAdmin(BasePermission):
 
 
 class IsSellerAndOwnerOrReadOnly(BasePermission):
-    """
-    Разрешает:
-    - Просмотр всем
-    - Редактирование только продавцу и только своих товаров
-    """
-
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
+            return True
+
+        if request.user.is_staff or request.user.is_superuser:
             return True
 
         return request.user.is_authenticated and request.user.role == 'seller'
 
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
+            return True
+
+        if request.user.is_staff or request.user.is_superuser:
             return True
 
         return obj.seller == request.user

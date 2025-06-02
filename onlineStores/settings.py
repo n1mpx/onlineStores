@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 from decouple import config
 import os
+from corsheaders.defaults import default_headers
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,12 +29,13 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,7 +46,6 @@ INSTALLED_APPS = [
     'users',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders',
     'storages',
     'drf_spectacular',
     'drf_spectacular_sidecar',
@@ -52,13 +53,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'onlineStores.urls'
@@ -177,6 +178,26 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+CORS_ALLOW_CREDENTIALS = True  # ВАЖНО: разрешает использовать куки / авторизациюAdd commentMore actions
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'access-control-allow-origin',
+    'access-control-allow-credentials',
+    'authorization',
+    'content-type',
+    'authorization',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+]
+
 # cd 'C:\Program Files\Minio\'
 # .\minio.exe server C:\MinioData
 STORAGES = {
@@ -204,3 +225,11 @@ AWS_DEFAULT_ACL = None
 # Платеж через Тинькофф
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+YOOMONEY_TOKEN = config('YOOMONEY_TOKEN')
+YOOMONEY_WALLET = config('YOOMONEY_WALLET')
+
+YOOKASSA_SHOP_ID = config('YOOKASSA_SHOP_ID')
+YOOKASSA_SECRET_KEY = config('YOOKASSA_SECRET_KEY')
+

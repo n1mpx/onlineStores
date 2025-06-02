@@ -48,3 +48,9 @@ urlpatterns += [
 }
 """
 # Методы оплаты: GET http://localhost:8000/api/v1/payment-methods/
+
+"""
+{
+  "checkout_id": 1
+}
+"""
