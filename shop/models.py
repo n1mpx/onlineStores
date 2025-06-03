@@ -120,7 +120,6 @@ class BasketItem(models.Model):
     def __str__(self):
         return f"{self.user} — {self.good.name} x {self.count}"
 
-
 class Checkout(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='checkouts'

@@ -114,6 +114,7 @@ class CustomPagination(PageNumberPagination):
         })
 
 
+# --- Категории ---
 class GoodCategoryViewSet(viewsets.ModelViewSet):
     queryset = GoodCategory.objects.all()
     serializer_class = GoodCategorySerializer
@@ -169,6 +170,7 @@ class GoodViewSet(viewsets.ModelViewSet):
         return Response({'message': f'{len(images)} изображений загружено'})
 
 
+# --- Методы оплаты ---
 class PaymentMethodViewSet(viewsets.ModelViewSet):
     queryset = PaymentMethod.objects.all()
     serializer_class = PaymentMethodSerializer
@@ -179,12 +181,14 @@ class PaymentMethodViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
 
 
+# --- Методы доставки ---
 class DeliveryMethodViewSet(viewsets.ModelViewSet):
     queryset = DeliveryMethod.objects.all()
     serializer_class = DeliveryMethodSerializer
     pagination_class = CustomPagination
 
 
+# --- Получатели (для заказов) ---
 class IsOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
@@ -279,10 +283,9 @@ class CheckoutViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("Корзина пуста")
 
         total = sum(item.good.price * item.count for item in basket_items)
-
         checkout = serializer.save(user=user, payment_total=total)
 
-        # Копируем корзину в чекаут
+        # Переносим товары из корзины в чекаут
         for item in basket_items:
             CheckoutItem.objects.create(
                 checkout=checkout,
@@ -294,6 +297,7 @@ class CheckoutViewSet(viewsets.ModelViewSet):
         basket_items.delete()
 
 
+# --- Транзакции пользователя ---
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
@@ -301,6 +305,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Transaction.objects.filter(checkout__user=self.request.user)
+
 
     def perform_create(self, serializer):
         validated_data = serializer.validated_data
