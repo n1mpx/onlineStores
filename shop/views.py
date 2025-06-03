@@ -319,7 +319,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": "http://localhost:5173/order-success"
+                "return_url": "http://localhost:5173/basket"
             },
             "capture": True,
             "description": f"Заказ №{checkout.id}",
