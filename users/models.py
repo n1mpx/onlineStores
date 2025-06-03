@@ -65,10 +65,6 @@ class User(AbstractUser):
 
     @property
     def is_seller(self):
-        """
-        Удобное свойство: возвращает True, если пользователь в группе 'seller'.
-        Работает даже если у него нет товаров.
-        """
         return self.groups.filter(name='seller').exists()
 
 

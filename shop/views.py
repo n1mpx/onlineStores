@@ -1,22 +1,105 @@
+from yookassa import Configuration, Payment
+import requests
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, BasePermission, SAFE_METHODS
+from rest_framework.exceptions import PermissionDenied
+import uuid
+import json
+
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, permissions, mixins, status, serializers
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.parsers import MultiPartParser
 
-from .models import (
-    GoodCategory, Good, PaymentMethod, DeliveryMethod,
-    Recipient, Checkout, Transaction, BasketItem, CheckoutItem
-)
+from .models import GoodCategory, Good, PaymentMethod, DeliveryMethod, Recipient, Checkout, Transaction, BasketItem, \
+    CheckoutItem, GoodImage
+from .serializers import GoodCategorySerializer, GoodSerializer, PaymentMethodSerializer, DeliveryMethodSerializer, \
+    RecipientSerializer, BasketItemSerializer, CheckoutSerializer, TransactionSerializer
+from .permission import IsSellerOrAdmin, IsSellerAndOwnerOrReadOnly, IsAdminOnly, IsSellerOnly
 
-from .serializers import (
-    GoodCategorySerializer, GoodSerializer, PaymentMethodSerializer,
-    DeliveryMethodSerializer, RecipientSerializer, BasketItemSerializer,
-    CheckoutSerializer, TransactionSerializer
-)
 
-from .permission import IsSellerOrAdmin, IsSellerAndOwnerOrReadOnly, IsAdminOnly
+Configuration.account_id = settings.YOOKASSA_SHOP_ID
+Configuration.secret_key = settings.YOOKASSA_SECRET_KEY
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initiate_yookassa_payment(request):
+    user = request.user
+    checkout_id = request.data.get('checkout_id')
+
+    try:
+        checkout = Checkout.objects.get(id=checkout_id, user=user)
+    except Checkout.DoesNotExist:
+        return Response({'error': 'Checkout не найден'}, status=404)
+
+    idempotence_key = str(uuid.uuid4())
+
+    payment = Payment.create({
+        "amount": {
+            "value": str(checkout.payment_total),
+            "currency": "RUB"
+        },
+        "confirmation": {
+            "type": "redirect",
+            "return_url": "http://localhost:5173/order-success"
+        },
+        "capture": True,
+        "description": f"Оплата заказа #{checkout.id}"
+    }, idempotence_key)
+
+    # Сохраняем транзакцию
+    Transaction.objects.create(
+        checkout=checkout,
+        status='PENDING',
+        amount=checkout.payment_total,
+        provider_data=payment.json()
+    )
+
+    return Response({
+        "payment_id": payment.id,
+        "confirmation_url": payment.confirmation.confirmation_url
+    })
+
+
+@csrf_exempt
+@api_view(['POST'])
+def yookassa_webhook(request):
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        object_data = payload.get('object', {})
+        payment_id = object_data.get('id')
+        status = object_data.get('status')
+
+        print(f"🔔 Webhook пришёл! payment_id={payment_id}, status={status}")
+
+        if not payment_id:
+            return Response({"error": "payment_id отсутствует"}, status=400)
+
+        transaction = Transaction.objects.filter(provider_data__id=payment_id).first()
+        if not transaction:
+            return Response({"error": "Transaction не найдена"}, status=404)
+
+        # Обновляем статус
+        transaction.status = 'SUCCESS' if status == 'succeeded' else 'ERROR'
+        transaction.provider_data = object_data
+        transaction.save()
+
+        # Обновляем заказ
+        if status == 'succeeded':
+            checkout = transaction.checkout
+            checkout.is_paid = True
+            checkout.status = 'PAID'
+            checkout.save()
+
+        return Response({"message": "OK"}, status=200)
+
+    except Exception as e:
+        print("Ошибка в webhook:", e)
+        return Response({"error": str(e)}, status=500)
 
 
 class CustomPagination(PageNumberPagination):
@@ -38,7 +121,6 @@ class GoodCategoryViewSet(viewsets.ModelViewSet):
     pagination_class = CustomPagination
 
 
-# --- Публичный каталог товаров ---
 class PublicGoodViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Good.objects.all()
     serializer_class = GoodSerializer
@@ -46,10 +128,9 @@ class PublicGoodViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CustomPagination
 
 
-# --- Товары продавца ---
 class GoodViewSet(viewsets.ModelViewSet):
     serializer_class = GoodSerializer
-    permission_classes = [permissions.IsAuthenticated, IsSellerAndOwnerOrReadOnly]
+    permission_classes = [IsSellerOnly, IsSellerAndOwnerOrReadOnly]
     pagination_class = CustomPagination
 
     def get_queryset(self):
@@ -67,6 +148,26 @@ class GoodViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff and obj.seller != self.request.user:
             raise PermissionDenied("Вы не можете получить доступ к чужому товару.")
         return obj
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser])
+    def upload_image(self, request, pk=None):
+        good = self.get_object()
+
+        if good.seller != request.user:
+            return Response({'detail': 'Вы не являетесь владельцем этого товара.'}, status=403)
+
+        if request.user.role not in ['seller', 'admin']:
+            return Response({'detail': 'Только продавец может загружать изображения.'}, status=403)
+
+        images = request.FILES.getlist('image')
+
+        if not images:
+            return Response({'error': 'Файлы не переданы'}, status=400)
+
+        for img in images:
+            GoodImage.objects.create(good=good, image=img)
+
+        return Response({'message': f'{len(images)} изображений загружено'})
 
 
 # --- Методы оплаты ---
@@ -114,7 +215,6 @@ class RecipientViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-# --- Корзина пользователя ---
 class BasketItemViewSet(viewsets.ModelViewSet):
     serializer_class = BasketItemSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -167,7 +267,6 @@ class BasketItemViewSet(viewsets.ModelViewSet):
         return super().update(request, *args, **kwargs)
 
 
-# --- Оформление заказа ---
 class CheckoutViewSet(viewsets.ModelViewSet):
     queryset = Checkout.objects.all()
     serializer_class = CheckoutSerializer

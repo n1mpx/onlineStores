@@ -28,8 +28,6 @@ class GoodAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-
-
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
     list_display = ['id', 'title', 'description']
@@ -63,8 +61,8 @@ class CheckoutItemInline(admin.TabularInline):
 
 @admin.register(Checkout)
 class CheckoutAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'payment_total', 'created']
-    list_filter = ['created', 'payment_method', 'delivery_method']
+    list_display = ['id', 'user', 'payment_total', 'status', 'is_paid', 'created']
+    list_filter = ['created', 'payment_method', 'delivery_method', 'status']
     inlines = [CheckoutItemInline]
     autocomplete_fields = ['user', 'recipient', 'payment_method', 'delivery_method']
     search_fields = ['user__email', 'recipient__first_name', 'recipient__last_name']

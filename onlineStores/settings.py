@@ -16,6 +16,7 @@ from decouple import config
 from corsheaders.defaults import default_headers
 
 import os
+from corsheaders.defaults import default_headers
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,9 +33,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -53,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -178,6 +183,26 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+CORS_ALLOW_CREDENTIALS = True  # ВАЖНО: разрешает использовать куки / авторизациюAdd commentMore actions
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'access-control-allow-origin',
+    'access-control-allow-credentials',
+    'authorization',
+    'content-type',
+    'authorization',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+]
+
 CORS_ALLOW_CREDENTIALS = True  # ВАЖНО: разрешает использовать куки / авторизацию
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
@@ -225,3 +250,8 @@ AWS_DEFAULT_ACL = None
 # Платеж через Тинькофф
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+YOOKASSA_SHOP_ID = config('YOOKASSA_SHOP_ID')
+YOOKASSA_SECRET_KEY = config('YOOKASSA_SECRET_KEY')
+
