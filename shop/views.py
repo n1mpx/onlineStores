@@ -301,3 +301,36 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Transaction.objects.filter(checkout__user=self.request.user)
+
+    def perform_create(self, serializer):
+        validated_data = serializer.validated_data
+        checkout = validated_data['checkout']
+        amount = validated_data['amount']
+
+        payment = Payment.create({
+            "amount": {
+                "value": str(amount),
+                "currency": "RUB"
+            },
+            "confirmation": {
+                "type": "redirect",
+                "return_url": "http://localhost:5173/order-success"
+            },
+            "capture": True,
+            "description": f"Заказ №{checkout.id}",
+            "metadata": {
+                "checkout_id": checkout.id,
+            }
+        }, uuid.uuid4().hex)
+
+        # Создаем и сохраняем вручную
+        transaction = Transaction.objects.create(
+            checkout=checkout,
+            amount=amount,
+            status='created',
+            provider_data=payment.json()
+        )
+
+        # ВАЖНО: записываем объект обратно в сериализатор
+        serializer.instance = transaction
+

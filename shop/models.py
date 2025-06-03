@@ -169,7 +169,7 @@ class Transaction(models.Model):
     checkout = models.ForeignKey(Checkout, on_delete=models.CASCADE, related_name='transactions')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    provider_data = models.JSONField(default=dict, blank=True)
+    provider_data = models.JSONField(null=True, blank=True)  # ⬅️ обязательно
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 

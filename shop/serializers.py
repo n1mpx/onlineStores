@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from .models import GoodCategory, Good, GoodImage, PaymentMethod, DeliveryMethod, Recipient, BasketItem, Checkout, \
     CheckoutItem, Transaction
+import json
+from rest_framework import serializers
+
 
 
 class GoodCategorySerializer(serializers.ModelSerializer):
@@ -96,17 +99,27 @@ class CheckoutSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'recipientId',
             'paymentMethodId', 'deliveryMethodId',
-            'payment_total', 'created', 'items'
+            'payment_total', 'created', 'items', 'status'
         ]
         read_only_fields = ['user', 'created', 'is_paid', 'status']
 
-
 class TransactionSerializer(serializers.ModelSerializer):
     checkoutId = serializers.PrimaryKeyRelatedField(source='checkout', queryset=Checkout.objects.all())
+    payment_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Transaction
         fields = [
             'id', 'created', 'updated', 'status', 'amount',
-            'checkoutId', 'provider_data'
+            'checkoutId', 'provider_data', 'payment_url'
         ]
+
+    def get_payment_url(self, obj):
+        if not obj.provider_data:
+            return None
+        try:
+            data = json.loads(obj.provider_data) if isinstance(obj.provider_data, str) else obj.provider_data
+            return data.get('confirmation', {}).get('confirmation_url')  # ⬅️ исправлено
+        except Exception:
+            return None
+
