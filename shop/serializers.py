@@ -17,6 +17,25 @@ class GoodCategorySerializer(serializers.ModelSerializer):
 
 
 class GoodImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and hasattr(obj.image, 'url'):
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
+
+    def get_thumbnail(self, obj):
+        request = self.context.get('request')
+        if obj.thumbnail and hasattr(obj.thumbnail, 'url'):
+            return request.build_absolute_uri(obj.thumbnail.url) if request else obj.thumbnail.url
+        return None
+
+    class Meta:
+        model = GoodImage
+        fields = ['id', 'image', 'thumbnail']
+class GoodImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = GoodImage
         fields = ['id', 'image', 'thumbnail']
@@ -29,7 +48,12 @@ class GoodSerializer(serializers.ModelSerializer):
     sellerId = serializers.PrimaryKeyRelatedField(
         source='seller', read_only=True
     )
-    images = GoodImageSerializer(many=True, read_only=True)
+    images = serializers.SerializerMethodField()
+
+    def get_images(self, obj):
+        request = self.context.get('request')
+        serializer = GoodImageSerializer(obj.images.all(), many=True, context={'request': request})
+        return serializer.data
 
     class Meta:
         model = Good
@@ -37,6 +61,7 @@ class GoodSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'price',
             'categoryId', 'sellerId', 'images'
         ]
+
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
